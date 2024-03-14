@@ -1,134 +1,105 @@
-"""
-Test extension array for storing nested data in a pandas container.
+import array
+a=array.array('i',[1,2,3,4,5,6])
+a
+array('i', [1, 2, 3, 4, 5, 6])
+import array as arr
+a=arr.array('i',[1,2,3,4,5,6])
+a
+array('i', [1, 2, 3, 4, 5, 6])
+from array import *
+a=array('i',[1,2,3,4,5,6])
+a
+array('i', [1, 2, 3, 4, 5, 6])
+#Accessing Elements
+a[2]
+3
+#Finding Length of an Array
+len(a)
+6
+#Adding Elements
+a
+array('i', [1, 2, 3, 4, 5, 6])
+a.append(8)
+a
+array('i', [1, 2, 3, 4, 5, 6, 8])
+a.append(2.4)
+Traceback (most recent call last):
+  File "<pyshell#17>", line 1, in <module>
+    a.append(2.4)
+TypeError: 'float' object cannot be interpreted as an integer
+a.extend([9,3,5,6])
+a
+array('i', [1, 2, 3, 4, 5, 6, 8, 9, 3, 5, 6])
+a.insert(2,6)
+a
+array('i', [1, 2, 6, 3, 4, 5, 6, 8, 9, 3, 5, 6])
+#Removing Elements
+a
+array('i', [1, 2, 6, 3, 4, 5, 6, 8, 9, 3, 5, 6])
+a.pop()
+6
+a.pop(-2)
+3
+a
+array('i', [1, 2, 6, 3, 4, 5, 6, 8, 9, 5])
+a.pop(2)
+6
+a.pop(-1)
+5
+a
+array('i', [1, 2, 3, 4, 5, 6, 8, 9])
+a.remove(8)
+a
+array('i', [1, 2, 3, 4, 5, 6, 9])
+#Array Concantenation
+b=arr.array('i',[1,2,3,4,5,6])
+c=arr.array('i',[3,4,5,7,9])
+d=arr.array('i')
+d=b+c
+d
+array('i', [1, 2, 3, 4, 5, 6, 3, 4, 5, 7, 9])
+#Slicing an Array
+d
+array('i', [1, 2, 3, 4, 5, 6, 3, 4, 5, 7, 9])
+d[0:5]
+array('i', [1, 2, 3, 4, 5])
+d[0:-2]
+array('i', [1, 2, 3, 4, 5, 6, 3, 4, 5])
+d[::-1]
+array('i', [9, 7, 5, 4, 3, 6, 5, 4, 3, 2, 1])
+d
+array('i', [1, 2, 3, 4, 5, 6, 3, 4, 5, 7, 9])
+#
+#Looping in Array
+d
+array('i', [1, 2, 3, 4, 5, 6, 3, 4, 5, 7, 9])
+temp=0
+while temp<d[2]:
+    print(d[temp])
+    temp=temp+1
+    print(temp)
 
-The ListArray stores an ndarray of lists.
-"""
-from __future__ import annotations
-
-import numbers
-import string
-from typing import TYPE_CHECKING
-
-import numpy as np
-
-from pandas.core.dtypes.base import ExtensionDtype
-
-import pandas as pd
-from pandas.api.types import (
-    is_object_dtype,
-    is_string_dtype,
-)
-from pandas.core.arrays import ExtensionArray
-
-if TYPE_CHECKING:
-    from pandas._typing import type_t
-
-
-class ListDtype(ExtensionDtype):
-    type = list
-    name = "list"
-    na_value = np.nan
-
-    @classmethod
-    def construct_array_type(cls) -> type_t[ListArray]:
-        """
-        Return the array type associated with this dtype.
-
-        Returns
-        -------
-        type
-        """
-        return ListArray
-
-
-class ListArray(ExtensionArray):
-    dtype = ListDtype()
-    __array_priority__ = 1000
-
-    def __init__(self, values, dtype=None, copy=False) -> None:
-        if not isinstance(values, np.ndarray):
-            raise TypeError("Need to pass a numpy array as values")
-        for val in values:
-            if not isinstance(val, self.dtype.type) and not pd.isna(val):
-                raise TypeError("All values must be of type " + str(self.dtype.type))
-        self.data = values
-
-    @classmethod
-    def _from_sequence(cls, scalars, *, dtype=None, copy=False):
-        data = np.empty(len(scalars), dtype=object)
-        data[:] = scalars
-        return cls(data)
-
-    def __getitem__(self, item):
-        if isinstance(item, numbers.Integral):
-            return self.data[item]
-        else:
-            # slice, list-like, mask
-            return type(self)(self.data[item])
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def isna(self):
-        return np.array(
-            [not isinstance(x, list) and np.isnan(x) for x in self.data], dtype=bool
-        )
-
-    def take(self, indexer, allow_fill=False, fill_value=None):
-        # re-implement here, since NumPy has trouble setting
-        # sized objects like UserDicts into scalar slots of
-        # an ndarary.
-        indexer = np.asarray(indexer)
-        msg = (
-            "Index is out of bounds or cannot do a "
-            "non-empty take from an empty array."
-        )
-
-        if allow_fill:
-            if fill_value is None:
-                fill_value = self.dtype.na_value
-            # bounds check
-            if (indexer < -1).any():
-                raise ValueError
-            try:
-                output = [
-                    self.data[loc] if loc != -1 else fill_value for loc in indexer
-                ]
-            except IndexError as err:
-                raise IndexError(msg) from err
-        else:
-            try:
-                output = [self.data[loc] for loc in indexer]
-            except IndexError as err:
-                raise IndexError(msg) from err
-
-        return self._from_sequence(output)
-
-    def copy(self):
-        return type(self)(self.data[:])
-
-    def astype(self, dtype, copy=True):
-        if isinstance(dtype, type(self.dtype)) and dtype == self.dtype:
-            if copy:
-                return self.copy()
-            return self
-        elif is_string_dtype(dtype) and not is_object_dtype(dtype):
-            # numpy has problems with astype(str) for nested elements
-            return np.array([str(x) for x in self.data], dtype=dtype)
-        return np.array(self.data, dtype=dtype, copy=copy)
-
-    @classmethod
-    def _concat_same_type(cls, to_concat):
-        data = np.concatenate([x.data for x in to_concat])
-        return cls(data)
+    
+1
+1
+2
+2
+3
+3
 
 
-def make_data():
-    # TODO: Use a regular dict. See _NDFrameIndexer._setitem_with_indexer
-    rng = np.random.default_rng(2)
-    data = np.empty(100, dtype=object)
-    data[:] = [
-        [rng.choice(list(string.ascii_letters)) for _ in range(rng.integers(0, 10))]
-        for _ in range(100)
-    ]
-    return data
+a
+array('i', [1, 2, 3, 4, 5, 6, 9])
+temp=0
+while temp<len(a):
+    print(a[temp])
+    temp+=1
+
+    
+1
+2
+3
+4
+5
+6
+9
